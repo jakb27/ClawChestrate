@@ -561,6 +561,67 @@ Große Kontexte, vollständige Ergebnisinhalte und Artefakte bleiben außerhalb 
 - Für v1 soll dieser Projektkontext-Aufbau möglichst nah an OpenClaw bleiben und auf bestehenden Prompt-/Kontextaufbau-Mechanismen aufsetzen.
 - Perspektivisch kann dieser Mechanismus später in eine stärkere Context-Engine-Integration überführt werden, sobald die ClawChestrate-Grundstruktur stabil läuft.
 
+## Memory- und Compaction-Mapping auf OpenClaw
+
+- ClawChestrate ersetzt in v1 nicht das bestehende Memory- und Compaction-System von OpenClaw.
+- Stattdessen nutzt ClawChestrate OpenClaw als Basisschicht und erweitert es um projektspezifische Memory- und Rehydrationsmechanismen.
+
+### OpenClaw-Basisschicht
+- Als agentenweite Basisschicht übernimmt ClawChestrate die bestehenden OpenClaw-Mechanismen:
+  - `MEMORY.md` als kuratiertes agentenweites Langzeitmemory
+  - `memory/YYYY-MM-DD.md` als laufendes agentisches Tages- und Verlaufsmemory
+  - `memory_search`
+  - `memory_get`
+  - Session-Compaction
+  - pre-compaction memory flush
+  - Session-Pruning für Tool-Result-Bloat
+
+### ClawChestrate-Projektschicht
+- Über diese OpenClaw-Basis legt ClawChestrate eine projektspezifische Schicht:
+  - `projects/<project-id>/summaries/current.md` als projektbezogene Rehydrationssummary
+  - `projects/<project-id>/memory/` als projektbezogenes Verlaufsmemory
+- Diese Projektschicht ergänzt OpenClaw, ersetzt es aber nicht.
+
+### Agentenweites vs. projektbezogenes Memory
+- Agentenweites, projektübergreifend wiederverwendbares Wissen gehört in die OpenClaw-Basisdateien des Agenten, insbesondere in `MEMORY.md`.
+- Laufende agentische Notizen und Tagesverlauf gehören in `memory/YYYY-MM-DD.md`.
+- Projektspezifischer Verlauf, projektspezifische Learnings und projektinterne Zwischenerkenntnisse gehören in `projects/<project-id>/memory/`.
+- Der aktuelle projektbezogene Arbeits- und Übergabezustand gehört in `projects/<project-id>/summaries/current.md`.
+
+### Unterschied zwischen Projekt-Summary und Projekt-Memory
+- `projects/<project-id>/summaries/current.md` hält den aktuellen verdichteten Projektzustand.
+- Es beantwortet vor allem:
+  - wo das Projekt gerade steht
+  - was aktuell wichtig ist
+  - was der Fokus ist
+  - was als Nächstes zu tun ist
+- `projects/<project-id>/memory/` hält den ausführlicheren Projektverlauf.
+- Es beantwortet vor allem:
+  - was im Projekt passiert ist
+  - welche Zwischenerkenntnisse und Begründungen festgehalten werden sollen
+  - was später im Projekt noch nachvollziehbar bleiben muss
+
+### Verhältnis zu Compaction
+- OpenClaw-Compaction bleibt in v1 die Basisschicht für die Verdichtung des laufenden Session-Kontexts.
+- ClawChestrate führt darüber hinaus projektbezogene Verdichtung durch, insbesondere über `summaries/current.md` und projektbezogenes `memory/`.
+- Damit werden Session-Compaction und projektbezogene Rehydration bewusst getrennt behandelt.
+
+### Pre-compaction memory flush
+- OpenClaw bietet bereits einen pre-compaction memory flush, also einen stillen Turn vor einer Compaction, um dauerhafte Informationen ins Memory zu schreiben.
+- ClawChestrate soll diesen Mechanismus nicht ignorieren, sondern später projektspezifisch erweitern.
+- Für projektgebundene Sessions bedeutet das perspektivisch:
+  - vor Compaction kann nicht nur agentenweites Memory aktualisiert werden
+  - sondern zusätzlich projektbezogenes `memory/` und `summaries/current.md`
+
+### Session-Pruning
+- OpenClaw-Session-Pruning bleibt in v1 die Basisschicht zur Reduktion alter Tool-Result-Inhalte im unmittelbaren Modellkontext.
+- ClawChestrate führt dafür in v1 kein separates paralleles Pruning-System ein.
+- Dadurch bleibt die Architektur nah an OpenClaw und vermeidet doppelte Kontextreduktionslogik.
+
+### Grundregel
+- OpenClaw stellt die agentweite Memory- und Compaction-Basis bereit.
+- ClawChestrate ergänzt darüber eine projektspezifische Memory- und Rehydrationsschicht.
+- Das ClawChestrate-Memory-Modell baut damit auf OpenClaw auf, statt es in v1 neu zu ersetzen.
+
 ## Noch offen
-- Wie ClawChestrate sein Memory- und Compaction-Modell konkret auf OpenClaws bestehendes Memory-/Compaction-System mappt
 - Wie die Delegation Registry die OpenClaw-Run-Ebene sauber abbildet, insbesondere die Trennung zwischen externer Session und externem externen Run
