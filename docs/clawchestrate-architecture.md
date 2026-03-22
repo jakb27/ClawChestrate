@@ -519,5 +519,48 @@ Große Kontexte, vollständige Ergebnisinhalte und Artefakte bleiben außerhalb 
 - `summaries/current.md` erhält nur den aktuellen verdichteten Startzustand.
 - Die Initialbefüllung ist immer eine Verdichtung des Session-Kontexts und niemals ein Chat-Dump.
 
+## Projektkontext im Run
+
+- Projektdateien und Projektzustände sind nicht automatisch vollständig Teil jedes Lead-Runs.
+- Für projektgebundene Sessions muss der Projektkontext vor jedem relevanten Run gezielt in den Run-Kontext assembliert werden.
+
+- In v1 erfolgt dieser Projektkontext-Aufbau möglichst eng an bestehenden OpenClaw-Kontext- und Promptaufbau-Mechanismen.
+- Dabei wird kein eigener generischer Run-Typ-Mechanismus für ClawChestrate eingeführt.
+
+- Der projektgebundene Run-Kontext wird in v1 aus folgenden Quellen zusammengesetzt:
+  - Session-Metadaten
+  - Project Registry
+  - Project Workspace
+  - Delegation Registry
+
+### Kernkontext projektgebundener Lead-Runs
+- Für normale projektgebundene Lead-Runs gehören in v1 grundsätzlich zum Kernkontext:
+  - `PROJECT.md`
+  - `summaries/current.md`
+  - `DELEGATION.md`
+
+- Dabei gilt:
+  - `PROJECT.md` liefert die grundlegende Projektorientierung und den stabilen Projektrahmen
+  - `summaries/current.md` liefert den aktuellen operativen Projektzustand
+  - `DELEGATION.md` liefert die projektspezifische Delegationsstrategie
+
+- `PROJECT.md` und `summaries/current.md` bilden gemeinsam den Kern der Projektorientierung.
+- Für die konkrete nächste Handlung ist `summaries/current.md` in der Regel das wichtigere operative Dokument, während `PROJECT.md` den stabilen Rahmen sichert.
+
+### Selektiver Zusatzkontext
+- Nicht der gesamte Projektkontext wird pauschal vollständig geladen.
+- Selektiv ergänzt werden nur bei Bedarf:
+  - projektbezogenes `memory/`
+  - relevante `artifacts/`
+  - kompakte operative Zustände aus Project Registry und Delegation Registry
+
+- Registry-Zustände werden dabei nicht als Rohdump übernommen, sondern in kompakter operativer Form.
+- Ziel ist ein assembliertes, run-spezifisches Projektbild statt eines ungefilterten Dateidumps.
+
+### Architektur-Richtung
+- Für v1 soll dieser Projektkontext-Aufbau möglichst nah an OpenClaw bleiben und auf bestehenden Prompt-/Kontextaufbau-Mechanismen aufsetzen.
+- Perspektivisch kann dieser Mechanismus später in eine stärkere Context-Engine-Integration überführt werden, sobald die ClawChestrate-Grundstruktur stabil läuft.
+
 ## Noch offen
-- Keine offenen Architekturpunkte im aktuellen v1-Grundschnitt
+- Wie ClawChestrate sein Memory- und Compaction-Modell konkret auf OpenClaws bestehendes Memory-/Compaction-System mappt
+- Wie die Delegation Registry die OpenClaw-Run-Ebene sauber abbildet, insbesondere die Trennung zwischen externer Session und externem externen Run
