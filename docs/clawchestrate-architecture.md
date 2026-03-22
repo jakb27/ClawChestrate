@@ -228,22 +228,106 @@ Große Kontexte, vollständige Ergebnisinhalte und Artefakte bleiben außerhalb 
 
 ### Completion-Erkennung und Rückfluss
 
-- Eine externe Delegation gilt erst dann als abgeschlossen, wenn:
-  - ein terminaler technischer Zustand erkannt wurde
-  - eine verwertbare strukturierte Abschlussantwort oder ein verwertbares Endergebnis vorliegt
-  - das Ergebnis noch nicht intern verarbeitet wurde
-- Der Adapter verarbeitet Completion nicht mehrfach.
-- Dazu wird an der `DelegationSession` festgehalten, ob Completion bereits übernommen wurde, z. B. über ein Feld wie `completionHandled`.
+- Für externe Delegationen unterscheidet `ClawChestrate` sauber zwischen:
+  - der externen Worker-Session
+  - einem konkreten externen Run in dieser Session
+- Der Begriff `terminal` bezieht sich in v1 auf den konkreten externen Run, nicht auf die gesamte Worker-Session.
+- Terminal bedeutet: Dieser konkrete externe Run ist beendet und läuft nicht weiter.
+- Terminal bedeutet nicht automatisch, dass das Ergebnis erfolgreich oder vollständig ist.
 
-- Nach erkannter Completion passiert folgender Rückfluss:
-  1. die passende `DelegationSession` wird aktualisiert
-  2. das Ergebnis wird normalisiert und persistent gespeichert oder referenziert
-  3. ein internes Completion-Signal wird für die zugehörige Lead-Session ausgelöst
-  4. die Lead-Session wird dadurch für einen normalen Folge-Run geweckt
-  5. im Folge-Run übernimmt die Lead-Session das Ergebnis kontrolliert in Projektzustand, `artifacts/`, Projekt-`memory/` und `summaries/current.md`
+### Bedeutung von Push, Polling und Updates
+- Push-Signale zeigen an, dass es neue Information über eine offene externe Delegation gibt.
+- Diese neue Information kann z. B. sein:
+  - neue Nachricht in der beobachteten Worker-Session
+  - neuer Assistant-Output
+  - neuer Transcript-Eintrag
+  - Statusänderung des externen Runs
+- Polling dient als Fallback und prüft offene `DelegationSessions` gezielt auf neue Status- oder Ergebnisinformationen, falls kein verlässliches Push-Signal ankommt.
+- Push und Polling dienen beide der Beobachtung offener externer Delegationen.
+- Sie bedeuten nicht automatisch, dass ein externer Run bereits terminal ist.
 
-- Das interne Completion-Signal ist nicht selbst schon die Ergebnisverarbeitung.
-- Es ist nur der Auslöser dafür, dass die Lead-Session den nächsten normalen Orchestrierungsrun startet und das Ergebnis übernimmt.
+### Nicht terminale Zustände
+- Nicht terminal bedeutet: Der konkrete externe Run ist noch nicht beendet.
+- Nicht terminale Zustände in v1 sind insbesondere:
+  - `queued`
+  - `running`
+- Nicht terminale Updates werden nicht ignoriert.
+- Sie führen dazu, dass der bekannte Zustand der `DelegationSession` aktualisiert und die Delegation weiter beobachtet wird.
+- Nicht terminale Updates lösen jedoch kein internes Completion-Signal für die Lead-Session aus.
+
+### Terminale Zustände
+- Terminal bedeutet: Der konkrete externe Run ist beendet.
+- Terminale Zustände in v1 sind insbesondere:
+  - `completed`
+  - `failed`
+  - `cancelled`
+  - `timeout`
+- Bloße Inaktivität oder fehlender neuer Output reichen nicht aus, um Terminalität anzunehmen.
+
+### Bedeutung terminaler Zustände
+- Ein terminaler Zustand beendet nur die technische Ausführung des konkreten externen Runs.
+- Die fachliche Bedeutung für das Projekt wird erst danach durch `ClawChestrate` bewertet.
+- Ein terminaler externer Run kann daher z. B. bedeuten:
+  - brauchbares Ergebnis liegt vor
+  - Teilergebnis liegt vor
+  - Fehlerfall
+  - Timeout
+  - Abbruch
+  - Rückfrage oder fehlende Information statt fertigem Ergebnis
+
+### Verwertbares finales Ergebnis
+- Wenn ein externer Run terminal wird, liest der Adapter das zugehörige Endergebnis aus.
+- Ein verwertbares finales Ergebnis ist in v1 nur dann gegeben, wenn daraus mindestens ableitbar ist:
+  - finaler Ergebnisstatus
+  - kurze Summary
+  - Issues / Probleme, falls vorhanden
+  - Artefakte oder eine leere Artefaktliste
+- Ein terminaler technischer Zustand ohne brauchbares Endergebnis ist ein problematischer Endzustand und muss als solcher behandelt werden.
+
+### Einmalverarbeitung
+- Damit terminale Zustände nicht mehrfach verarbeitet werden, hält `ClawChestrate` an der `DelegationSession` fest, ob ein terminaler Run bereits intern übernommen wurde, z. B. über ein Feld wie `completionHandled`.
+- Push und Polling dürfen denselben terminalen Zustand erkennen, aber nicht doppelt weiterverarbeiten.
+
+### Rückfluss
+- Sobald ein externer Run terminal ist und noch nicht intern verarbeitet wurde:
+  1. wird die passende `DelegationSession` aktualisiert
+  2. wird das Endergebnis gelesen und normalisiert
+  3. wird die Delegation Registry aktualisiert
+  4. wird ein internes Completion-Signal für die zugehörige Lead-Session ausgelöst
+- Dieses interne Completion-Signal bedeutet nicht, dass der Fall bereits fachlich gelöst ist.
+- Es bedeutet nur, dass ein konkreter externer Run beendet wurde und nun durch die Lead-Session behandelt werden muss.
+
+### Reaktion der Lead-Session auf terminale externe Runs
+
+- Sobald ein externer Run terminal wird, löst `ClawChestrate` einen normalen Folge-Run in der zuständigen Lead-Session aus.
+- Dieser Folge-Run bewertet die fachliche Bedeutung des terminalen externen Runs für das Projekt und entscheidet über die weitere Projektführung.
+
+- Die Lead-Session unterscheidet in v1 mindestens folgende Reaktionsarten:
+
+#### 1. Ergebnis übernehmen
+- Der externe Run hat ein brauchbares Ergebnis geliefert.
+- Die Lead-Session übernimmt das Ergebnis in den Projektzustand und arbeitet normal weiter.
+
+#### 2. Ergebnis teilweise übernehmen und Restarbeit neu planen
+- Der externe Run hat verwertbare Teilresultate geliefert, aber nicht alles erreicht.
+- Die Lead-Session übernimmt die brauchbaren Teile und plant die verbleibende Arbeit neu.
+
+#### 3. Fehlerfall behandeln
+- Der externe Run ist fehlgeschlagen oder hat kein brauchbares Ergebnis geliefert.
+- Die Lead-Session behandelt dies als Replan-, Retry- oder Blocker-Fall.
+
+#### 4. Rückfrage oder fehlende Information behandeln
+- Der externe Run ist technisch terminal, liefert fachlich aber eine Rückfrage oder einen Klärungsbedarf statt eines fertigen Ergebnisses.
+- Die Lead-Session übernimmt diesen Klärungsbedarf und entscheidet, ob sie ihn selbst auflösen kann oder ob Nutzerinput nötig ist.
+
+#### 5. Delegation bewusst beenden oder verwerfen
+- Der externe Run wurde abgebrochen oder seine Ergebnisse sollen nicht weiterverwendet werden.
+- Die Lead-Session markiert die Delegation entsprechend und entscheidet über den weiteren Projektpfad.
+
+### Grundregel
+- Der terminale Zustand eines externen Runs ist nur das Ende der technischen Ausführung.
+- Erst der Folge-Run der Lead-Session bestimmt die fachliche Bedeutung für das Projekt.
+- Technischer Endzustand und fachliche Projektreaktion sind daher getrennte Ebenen.
 
 ### Architekturregel für OpenClaw-Delegationen
 
@@ -436,4 +520,4 @@ Große Kontexte, vollständige Ergebnisinhalte und Artefakte bleiben außerhalb 
 - Die Initialbefüllung ist immer eine Verdichtung des Session-Kontexts und niemals ein Chat-Dump.
 
 ## Noch offen
-- Konkrete terminale Erkennungsregeln, mit denen der `OpenClawAdapter` eine externe Session als abgeschlossen bewertet
+- Keine offenen Architekturpunkte im aktuellen v1-Grundschnitt
