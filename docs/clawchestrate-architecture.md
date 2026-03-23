@@ -285,10 +285,11 @@ Große Kontexte, vollständige Ergebnisinhalte und Artefakte bleiben weiterhin a
 ### Session-Ruhe statt bloßer Run-Terminalität
 - Für OpenClaw-basierte Delegationen erfolgt der Rückfluss an ClawChestrate erst dann, wenn die zugehörige externe `DelegationSession` nach OpenClaw-Semantik keine aktive Arbeit mehr hat.
 - Dazu gehören nicht nur direkte Runs dieser Session, sondern auch noch laufende oder noch nicht vollständig abgearbeitete descendant subagent runs.
-- Eine Delegation gilt daher erst dann als rückgabereif, wenn:
-  - kein aktiver Run der Session mehr läuft
-  - keine pending descendant subagent runs mehr existieren
-  - eventuell ausgelöste Wake-/Continuation-Runs ebenfalls abgeschlossen sind
+- Eine Delegation gilt daher in v1 erst dann als rückgabereif, wenn:
+  - der aktuell relevante externe Run terminal ist
+  - keine aktiven descendant subagent runs mehr sichtbar sind
+  - während eines kurzen Settling-Fensters keine neue Session-Aktivität und kein neuer Folge-Run auftritt
+  - die anschließende Re-Prüfung weiterhin keine aktive Arbeit mehr zeigt
 
 ### Bedeutung von Push, Polling und Updates
 - Push-Signale zeigen an, dass es neue Information über eine offene externe Delegation gibt.
@@ -298,7 +299,7 @@ Große Kontexte, vollständige Ergebnisinhalte und Artefakte bleiben weiterhin a
   - neuer Transcript-Eintrag
   - Statusänderung eines externen Runs
   - Spawn- oder Endzustand eines descendant subagent runs
-- Polling dient als Fallback und prüft offene externe `DelegationSessions` gezielt darauf, ob noch aktive Arbeit existiert oder ob die Session inzwischen final ruhig geworden ist.
+- Polling dient als Fallback und prüft offene externe `DelegationSessions` gezielt darauf, ob der relevante Run beendet ist, ob noch aktive Subagents sichtbar sind und ob die Session nach einem kurzen Settling-Fenster weiterhin ruhig bleibt.
 - Push und Polling dienen beide der Beobachtung offener externer Delegationen.
 - Sie bedeuten nicht automatisch, dass eine Delegation bereits rückgabereif ist.
 
@@ -726,23 +727,32 @@ Große Kontexte, vollständige Ergebnisinhalte und Artefakte bleiben weiterhin a
 - `agent.wait` liefert für einen `runId` insbesondere den terminalen Status, aber nicht den vollständigen inhaltlichen Output.
 - Der eigentliche inhaltliche Output liegt in der zugehörigen externen Session bzw. ihrem Transcript.
 - Für ClawChestrate bedeutet das:
-  - `providerRunRef` dient zur Beobachtung von Lifecycle, Terminalität und Completion des konkreten externen Runs
+  - `providerRunRef` dient zur Beobachtung von Lifecycle und Terminalität des konkreten externen Runs.
   - `providerSessionRef` dient zum Auslesen des eigentlichen inhaltlichen Outputs aus der externen Session
+  - Die fachliche Completion einer OpenClaw-basierten Delegation wird in v1 jedoch nicht allein aus `providerRunRef` abgeleitet, sondern aus dem Zustand der gesamten externen Session.
 
 ### Push, Polling und Output-Übernahme
-- Push- und Lifecycle-Signale dienen in v1 primär dazu, Statusänderungen und terminale Zustände externer Runs zu erkennen.
+- Push- und Lifecycle-Signale dienen in v1 primär dazu, Veränderungen offener externer Delegationssessions zu erkennen.
+- Dazu gehören insbesondere terminale oder neu gestartete externe Runs, Session-Nachrichten und Transcript-Änderungen.
 - Transcript- und Message-Events können dabei bereits inhaltliche Ausschnitte des externen Outputs mitliefern.
-- Die verlässliche finale Ergebnisübernahme erfolgt jedoch nicht allein aus Push-Events.
-- Stattdessen liest der `OpenClawAdapter` nach einem terminalen externen Run den relevanten Output gezielt aus der zugehörigen externen Session, insbesondere über Session-History- und Transcript-Flächen.
-- Push ist damit das bevorzugte Signal für Veränderung und Terminalität.
+- Die verlässliche finale Ergebnisübernahme erfolgt jedoch weder allein aus Push-Events noch allein aus der Terminalität eines einzelnen externen Runs.
+- Stattdessen verwendet `ClawChestrate` für OpenClaw-Delegationen in v1 eine kombinierte Abschlussprüfung:
+  - der aktuell relevante externe Run ist terminal
+  - `subagents list` für die externe Session zeigt keine aktiven Subagents mehr
+  - während eines kurzen Settling-Fensters tritt keine neue Session-Aktivität und kein neuer Folge-Run auf
+  - die anschließende Re-Prüfung bestätigt weiterhin keine aktive Arbeit
+- Erst nach dieser Abschlussprüfung liest der `OpenClawAdapter` den relevanten finalen Output gezielt aus der zugehörigen externen Session, insbesondere über Session-History- und Transcript-Flächen.
+- Push ist damit das bevorzugte Signal für Veränderung und erneute Prüfung.
+- Polling bleibt das Sicherheitsnetz, wenn Signale ausbleiben oder erneut bestätigt werden müssen.
 - Die Session-History ist die verlässliche Quelle für die finale inhaltliche Ergebnisübernahme.
 
 ### Grundregel
-- Terminalität bezieht sich in ClawChestrate auf den konkreten `DelegationRun`, nicht auf die `DelegationSession` als Ganzes.
+- Terminalität bezieht sich in ClawChestrate technisch auf den konkreten `DelegationRun`, nicht auf die `DelegationSession` als Ganzes.
+- Die fachliche Completion einer OpenClaw-basierten Delegation wird in v1 jedoch auf Ebene der `DelegationSession` entschieden, nachdem die kombinierte Abschlussprüfung keine weitere aktive Arbeit mehr zeigt.
 - Wenn dieselbe delegierte Aufgabe in derselben externen Session erneut ausgeführt wird, bleibt die `DelegationSession` bestehen, aber es entsteht ein neuer `DelegationRun`.
 - Dadurch bleiben Session-Kontext, technische Ausführung, Ergebnisübernahme und fachliche Delegationsbewertung sauber getrennt.
 
 ## Noch offen
-- Über welche konkrete OpenClaw-interne oder -öffentliche Fläche der `OpenClawAdapter` in v1 die finale Ruhe einer externen Delegationssession bestimmt, insbesondere bei descendant subagent runs und Wake-/Continuation-Runs
+- Ob OpenClaw später eine kleine öffentliche Quiescence-Bridge erhalten soll, damit `ClawChestrate` externe Delegationssessions ohne heuristisches Settling-Fenster exakt abschließen kann
 - Über welchen konkreten OpenClaw-Mechanismus der Projektkontext in v1 in den Lead-Run eingebracht wird, insbesondere die Abgrenzung zwischen `before_prompt_build`, `agent:bootstrap` und späterer Context-Engine-Integration
 - Wie stark ClawChestrate in v1 OpenClaws bestehende Retrieval- und Memory-Funktionen für Projekt-Memory aktiv nutzt, insbesondere `memory_search`, `memory_get` und ggf. Session-/Transcript-Retrieval
