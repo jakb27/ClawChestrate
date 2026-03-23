@@ -136,9 +136,11 @@ Der Unterschied zu `openclaw` liegt nicht in einer völlig anderen Runtime, sond
   - `timeout`
 - Externe Agentensessions liefern Ergebnisse nicht direkt als unstrukturierte Chatantwort an die Lead-Session zurück.
 - Stattdessen wird das Ergebnis zunächst persistent an der zugehörigen Delegation gespeichert.
-- Nach Abschluss einer externen Delegation erzeugt das System ein internes Completion-Signal für die Lead-Session des Projekts.
+- Nach finalem Abschluss einer externen Delegationssession erzeugt das System ein internes Completion-Signal für die Lead-Session des Projekts.
 - Dieses Completion-Signal triggert keinen Sondermodus, sondern weckt die Lead-Session für einen normalen Folge-Run.
-- Im Folge-Run übernimmt die Lead-Session das Ergebnis kontrolliert:
+- Ein einzelner terminaler externer Run ist dafür in v1 nicht automatisch ausreichend.
+- Für OpenClaw-basierte Delegationen wird die Rückgabe an ClawChestrate erst dann ausgelöst, wenn die zugehörige externe Session nach OpenClaw-Semantik keine aktive Arbeit mehr hat.
+- Erst im danach ausgelösten Folge-Run übernimmt die Lead-Session das Ergebnis kontrolliert:
   - relevante Artefakte werden übernommen
   - Projekt-Memory und `summaries/current.md` werden aktualisiert
   - der nächste Projektschritt wird geplant
@@ -238,31 +240,36 @@ Große Kontexte, vollständige Ergebnisinhalte und Artefakte bleiben weiterhin a
   - externe Projektagenten anlegen oder wiederfinden
   - `DelegationSessions` in diesen Agenten anlegen oder wiederfinden
   - konkrete externe `DelegationRuns` starten
-  - aktive externe Runs beobachten
-  - Terminalität und Completion erkennen
+  - aktive externe Runs und ihre zugehörigen externen Sessions beobachten
+  - Run-Terminalität und finale Session-Ruhe erkennen
   - den inhaltlichen Output aus der zugehörigen externen Session lesen
   - Ergebnisse in das interne `ClawChestrate`-Format normalisieren
   - interne Completion-Signale für die Lead-Session auslösen
 
 - Der OpenClaw-Worker meldet sein Ergebnis nicht direkt an die `ClawChestrate`-Lead-Session.
 - Stattdessen schreibt oder hinterlässt der Worker sein strukturiertes Ergebnis in seiner eigenen OpenClaw-Session.
-- Der `OpenClawAdapter` erkennt den terminalen Zustand des konkreten externen Runs und übersetzt ihn in den internen `ClawChestrate`-Rückfluss.
+- Der `OpenClawAdapter` erkennt terminale Zustände konkreter externer Runs, führt daraus jedoch nicht automatisch sofort einen Rückfluss an ClawChestrate aus.
+- Der interne `ClawChestrate`-Rückfluss erfolgt erst dann, wenn die zugehörige externe Session nach OpenClaw-Semantik keine aktive Arbeit mehr hat.
 
 ### Push-first mit Polling-Fallback
 
 - `ClawChestrate` verwendet für OpenClaw-Delegationen ein `Push-first mit Polling-Fallback`-Modell.
 - Push ist der bevorzugte Weg, Polling ist das Sicherheitsnetz.
-- Der Adapter beobachtet nur aktive oder offene `DelegationRuns` samt ihrer zugehörigen externen Sessions, nicht pauschal alle externen Sessions.
+- Der Adapter beobachtet nicht nur einzelne `DelegationRuns`, sondern den Aktivitätszustand der gesamten externen `DelegationSession`.
 
 - OpenClaw bietet reale Signalwege, die der Adapter nutzen kann, insbesondere:
+  - Run-Lifecycle-Signale
   - `sessions.subscribe`
   - `sessions.messages.subscribe`
   - Session-/Transcript-Updates über die vorhandenen Gateway-/History-Pfade
-- Der Adapter kann diese Signalwege verwenden, um OpenClaw-Sessions gezielt auf neue Nachrichten, neue Abschlussantworten und terminale Zustände zu beobachten.
+  - subagent-bezogene Zustandsänderungen
 
-- Für jeden aktiven oder offenen `DelegationRun` gilt:
-  - bevorzugt wird auf verwertbare OpenClaw-Run-, Session- oder Nachrichtenupdates reagiert
-  - wenn diese Signale nicht ausreichen oder nicht zuverlässig eintreffen, wird derselbe Run kontrolliert per Polling überprüft
+- Diese Signale dienen in v1 primär als Zustands- und Wake-Signale für eine erneute Prüfung der betroffenen externen Session.
+- Ein einzelnes Push-Ereignis ist jedoch nicht selbst der Beweis für fachliche Delegations-Completion.
+
+- Für jede offene externe `DelegationSession` gilt:
+  - bevorzugt wird auf verwertbare OpenClaw-Run-, Session-, Nachrichten- oder Subagent-Updates reagiert
+  - wenn diese Signale nicht ausreichen oder nicht zuverlässig eintreffen, wird dieselbe Session kontrolliert per Polling überprüft
 
 - Polling dient in v1 als verlässlicher Fallback und muss unabhängig von Push immer funktionieren.
 - Push und Polling aktualisieren immer denselben Delegationsdatensatz und dürfen keine getrennten Wahrheiten erzeugen.
@@ -271,10 +278,17 @@ Große Kontexte, vollständige Ergebnisinhalte und Artefakte bleiben weiterhin a
 
 - Für externe Delegationen unterscheidet `ClawChestrate` sauber zwischen:
   - der externen Worker-Session
-  - einem konkreten externen Run in dieser Session
-- Der Begriff `terminal` bezieht sich in v1 auf den konkreten externen Run, nicht auf die gesamte Worker-Session.
-- Terminal bedeutet: Dieser konkrete externe Run ist beendet und läuft nicht weiter.
-- Terminal bedeutet nicht automatisch, dass das Ergebnis erfolgreich oder vollständig ist.
+  - konkreten externen Runs in dieser Session
+- Ein `DelegationRun` bleibt die technische Einheit für Lifecycle, Status, Fehlerdiagnose und Run-Zuordnung.
+- Ein terminaler externer Run ist in v1 jedoch nicht automatisch gleichbedeutend mit einer fachlich abgeschlossenen Delegation.
+
+### Session-Ruhe statt bloßer Run-Terminalität
+- Für OpenClaw-basierte Delegationen erfolgt der Rückfluss an ClawChestrate erst dann, wenn die zugehörige externe `DelegationSession` nach OpenClaw-Semantik keine aktive Arbeit mehr hat.
+- Dazu gehören nicht nur direkte Runs dieser Session, sondern auch noch laufende oder noch nicht vollständig abgearbeitete descendant subagent runs.
+- Eine Delegation gilt daher erst dann als rückgabereif, wenn:
+  - kein aktiver Run der Session mehr läuft
+  - keine pending descendant subagent runs mehr existieren
+  - eventuell ausgelöste Wake-/Continuation-Runs ebenfalls abgeschlossen sind
 
 ### Bedeutung von Push, Polling und Updates
 - Push-Signale zeigen an, dass es neue Information über eine offene externe Delegation gibt.
@@ -282,100 +296,99 @@ Große Kontexte, vollständige Ergebnisinhalte und Artefakte bleiben weiterhin a
   - neue Nachricht in der beobachteten Worker-Session
   - neuer Assistant-Output
   - neuer Transcript-Eintrag
-  - Statusänderung des externen Runs
-- Polling dient als Fallback und prüft offene oder aktive `DelegationRuns` gezielt auf neue Status- oder Ergebnisinformationen, falls kein verlässliches Push-Signal ankommt.
+  - Statusänderung eines externen Runs
+  - Spawn- oder Endzustand eines descendant subagent runs
+- Polling dient als Fallback und prüft offene externe `DelegationSessions` gezielt darauf, ob noch aktive Arbeit existiert oder ob die Session inzwischen final ruhig geworden ist.
 - Push und Polling dienen beide der Beobachtung offener externer Delegationen.
-- Sie bedeuten nicht automatisch, dass ein externer Run bereits terminal ist.
+- Sie bedeuten nicht automatisch, dass eine Delegation bereits rückgabereif ist.
 
 ### Nicht terminale Zustände
-- Nicht terminal bedeutet: Der konkrete externe Run ist noch nicht beendet.
+- Nicht terminal bedeutet: Ein konkreter externer Run ist noch nicht beendet oder die zugehörige Session hat weiterhin aktive Arbeit.
 - Nicht terminale Zustände in v1 sind insbesondere:
   - `queued`
   - `running`
+  - Session mit noch aktiven descendant subagent runs
 - Nicht terminale Updates werden nicht ignoriert.
-- Sie führen dazu, dass der bekannte Zustand des `DelegationRun` aktualisiert und die zugehörige Delegation weiter beobachtet wird.
+- Sie führen dazu, dass der bekannte Zustand des `DelegationRun` oder der `DelegationSession` aktualisiert und die Delegation weiter beobachtet wird.
 - Nicht terminale Updates lösen jedoch kein internes Completion-Signal für die Lead-Session aus.
 
-### Terminale Zustände
-- Terminal bedeutet: Der konkrete externe Run ist beendet.
-- Terminale Zustände in v1 sind insbesondere:
+### Terminale Run-Zustände
+- Terminal bedeutet auf Run-Ebene: Der konkrete externe Run ist beendet.
+- Terminale Run-Zustände in v1 sind insbesondere:
   - `completed`
   - `failed`
   - `cancelled`
   - `timeout`
-- Bloße Inaktivität oder fehlender neuer Output reichen nicht aus, um Terminalität anzunehmen.
+- Bloße Inaktivität oder fehlender neuer Output reichen nicht aus, um Run-Terminalität anzunehmen.
 
-### Bedeutung terminaler Zustände
+### Bedeutung terminaler Run-Zustände
 - Ein terminaler Zustand beendet nur die technische Ausführung des konkreten externen Runs.
-- Die fachliche Bedeutung für das Projekt wird erst danach durch `ClawChestrate` bewertet.
-- Ein terminaler externer Run kann daher z. B. bedeuten:
-  - brauchbares Ergebnis liegt vor
-  - Teilergebnis liegt vor
-  - Fehlerfall
-  - Timeout
-  - Abbruch
-  - Rückfrage oder fehlende Information statt fertigem Ergebnis
+- In OpenClaw kann die zugehörige Session danach weiterhin aktive Arbeit haben, insbesondere durch descendant subagent runs oder anschließende Wake-/Continuation-Runs.
+- Deshalb ist ein terminaler Run in v1 nur ein wichtiger Beobachtungspunkt, aber noch nicht automatisch der Rückgabepunkt an ClawChestrate.
 
-### Verwertbares finales Ergebnis
-- Wenn ein externer Run terminal wird, liest der Adapter das zugehörige Endergebnis aus.
+### Verwertbares finales Session-Ergebnis
+- Erst wenn die externe Session final ruhig geworden ist, liest der Adapter das maßgebliche Ergebnis aus der zugehörigen Session-History.
 - Ein verwertbares finales Ergebnis ist in v1 nur dann gegeben, wenn daraus mindestens ableitbar ist:
   - finaler Ergebnisstatus
   - kurze Summary
   - Issues / Probleme, falls vorhanden
   - Artefakte oder eine leere Artefaktliste
-- Ein terminaler technischer Zustand ohne brauchbares Endergebnis ist ein problematischer Endzustand und muss als solcher behandelt werden.
+- Eine technisch ruhige Session ohne brauchbares Endergebnis ist ein problematischer Endzustand und muss als solcher behandelt werden.
 
 ### Einmalverarbeitung
-- Damit terminale Zustände nicht mehrfach verarbeitet werden, hält `ClawChestrate` am `DelegationRun` fest, ob ein terminaler Run bereits intern übernommen wurde, z. B. über ein Feld wie `completionHandled`.
-- Push und Polling dürfen denselben terminalen Zustand erkennen, aber nicht doppelt weiterverarbeiten.
+- Damit finale Session-Zustände nicht mehrfach verarbeitet werden, hält `ClawChestrate` an der `DelegationSession` fest, ob die Delegation bereits intern übernommen wurde.
+- `completionHandled` auf `DelegationRun` bleibt davon unberührt und dient weiterhin der idempotenten Verarbeitung einzelner terminaler Runs.
+- Push und Polling dürfen dieselbe finale Session-Ruhe erkennen, aber nicht doppelt weiterverarbeiten.
 
 ### Rückfluss
-- Sobald ein externer Run terminal ist und noch nicht intern verarbeitet wurde:
+- Sobald eine externe `DelegationSession` final ruhig ist und noch nicht intern verarbeitet wurde:
   1. wird die passende `DelegationSession` aktualisiert
-  2. wird das Endergebnis gelesen und normalisiert
+  2. wird das finale Session-Ergebnis aus der Session-History gelesen und normalisiert
   3. wird die Delegation Registry aktualisiert
   4. wird ein internes Completion-Signal für die zugehörige Lead-Session ausgelöst
 - Dieses interne Completion-Signal bedeutet nicht, dass der Fall bereits fachlich gelöst ist.
-- Es bedeutet nur, dass ein konkreter externer Run beendet wurde und nun durch die Lead-Session behandelt werden muss.
+- Es bedeutet, dass die externe Delegationssession ihre Arbeit abgeschlossen hat und nun durch die Lead-Session behandelt werden muss.
 
-### Reaktion der Lead-Session auf terminale externe Runs
+### Reaktion der Lead-Session auf final abgeschlossene externe Delegationen
 
-- Sobald ein externer Run terminal wird, löst `ClawChestrate` einen normalen Folge-Run in der zuständigen Lead-Session aus.
-- Dieser Folge-Run bewertet die fachliche Bedeutung des terminalen externen Runs für das Projekt und entscheidet über die weitere Projektführung.
+- Sobald eine externe Delegationssession final ruhig geworden ist, löst `ClawChestrate` einen normalen Folge-Run in der zuständigen Lead-Session aus.
+- Dieser Folge-Run bewertet die fachliche Bedeutung des finalen externen Session-Ergebnisses für das Projekt und entscheidet über die weitere Projektführung.
 
 - Die Lead-Session unterscheidet in v1 mindestens folgende Reaktionsarten:
 
 #### 1. Ergebnis übernehmen
-- Der externe Run hat ein brauchbares Ergebnis geliefert.
+- Die externe Delegationssession hat ein brauchbares Ergebnis geliefert.
 - Die Lead-Session übernimmt das Ergebnis in den Projektzustand und arbeitet normal weiter.
 
 #### 2. Ergebnis teilweise übernehmen und Restarbeit neu planen
-- Der externe Run hat verwertbare Teilresultate geliefert, aber nicht alles erreicht.
+- Die externe Delegationssession hat verwertbare Teilresultate geliefert, aber nicht alles erreicht.
 - Die Lead-Session übernimmt die brauchbaren Teile und plant die verbleibende Arbeit neu.
 
 #### 3. Fehlerfall behandeln
-- Der externe Run ist fehlgeschlagen oder hat kein brauchbares Ergebnis geliefert.
+- Die externe Delegationssession ist fehlgeschlagen oder hat kein brauchbares Ergebnis geliefert.
 - Die Lead-Session behandelt dies als Replan-, Retry- oder Blocker-Fall.
 
 #### 4. Rückfrage oder fehlende Information behandeln
-- Der externe Run ist technisch terminal, liefert fachlich aber eine Rückfrage oder einen Klärungsbedarf statt eines fertigen Ergebnisses.
+- Die externe Delegationssession liefert fachlich eine Rückfrage oder einen Klärungsbedarf statt eines fertigen Ergebnisses.
 - Die Lead-Session übernimmt diesen Klärungsbedarf und entscheidet, ob sie ihn selbst auflösen kann oder ob Nutzerinput nötig ist.
 
 #### 5. Delegation bewusst beenden oder verwerfen
-- Der externe Run wurde abgebrochen oder seine Ergebnisse sollen nicht weiterverwendet werden.
+- Die externe Delegationssession wurde beendet oder ihre Ergebnisse sollen nicht weiterverwendet werden.
 - Die Lead-Session markiert die Delegation entsprechend und entscheidet über den weiteren Projektpfad.
 
 ### Grundregel
-- Der terminale Zustand eines externen Runs ist nur das Ende der technischen Ausführung.
+- Run-Terminalität ist nur ein technischer Zwischenzustand innerhalb einer externen Delegationssession.
+- Erst die finale Ruhe der externen Session ist der Rückgabepunkt an ClawChestrate.
 - Erst der Folge-Run der Lead-Session bestimmt die fachliche Bedeutung für das Projekt.
-- Technischer Endzustand und fachliche Projektreaktion sind daher getrennte Ebenen.
+- Technische Run-Zustände, Session-Abschluss und fachliche Projektreaktion sind daher getrennte Ebenen.
 
 ### Architekturregel für OpenClaw-Delegationen
 
-- Der `OpenClawAdapter` ist ein Client auf OpenClaw-Gateway-, Session- und Nachrichten-Signale.
+- Der `OpenClawAdapter` ist ein Client auf OpenClaw-Gateway-, Session-, Nachrichten- und Subagent-Signale.
 - Externe Ergebnisse werden nicht direkt als freie Chatantwort in die Lead-Session übernommen.
 - Stattdessen werden sie über den Adapter:
   - der richtigen `DelegationSession` zugeordnet
+  - nach finaler Session-Ruhe aus der externen Session gelesen
   - in die Delegation Registry geschrieben
   - und dann kontrolliert an die Lead-Session zurückgeführt
 
@@ -388,7 +401,7 @@ Große Kontexte, vollständige Ergebnisinhalte und Artefakte bleiben weiterhin a
 - In Registry-/Systemwahrheit gehören insbesondere:
   - Project Registry mit offizieller Projektidentität, Status, Agent-Zuordnung und aktiver Lead-Session
   - Session Store mit projektbezogenen Session-Metadaten
-  - Delegation Registry mit `ExternalProjectAgents`, `DelegationSessions`, Status, Referenzen und Ergebniszuordnung
+- Delegation Registry mit `ExternalProjectAgents`, `DelegationSessions`, `DelegationRuns`, Status, Referenzen und Ergebniszuordnung
 
 - In den Workspace gehören insbesondere:
   - `PROJECT.md`
@@ -730,6 +743,6 @@ Große Kontexte, vollständige Ergebnisinhalte und Artefakte bleiben weiterhin a
 - Dadurch bleiben Session-Kontext, technische Ausführung, Ergebnisübernahme und fachliche Delegationsbewertung sauber getrennt.
 
 ## Noch offen
-- Über welche konkrete OpenClaw-Fläche der `OpenClawAdapter` externe Arbeit in v1 startet und wieder aufnimmt, insbesondere die Abgrenzung zwischen `agent`, `sessions_send`, `sessions_spawn` und ggf. ACP-Spawns
+- Über welche konkrete OpenClaw-interne oder -öffentliche Fläche der `OpenClawAdapter` in v1 die finale Ruhe einer externen Delegationssession bestimmt, insbesondere bei descendant subagent runs und Wake-/Continuation-Runs
 - Über welchen konkreten OpenClaw-Mechanismus der Projektkontext in v1 in den Lead-Run eingebracht wird, insbesondere die Abgrenzung zwischen `before_prompt_build`, `agent:bootstrap` und späterer Context-Engine-Integration
 - Wie stark ClawChestrate in v1 OpenClaws bestehende Retrieval- und Memory-Funktionen für Projekt-Memory aktiv nutzt, insbesondere `memory_search`, `memory_get` und ggf. Session-/Transcript-Retrieval
