@@ -4,6 +4,9 @@
 `ClawChestrate` soll die `openclaw`-Architektur möglichst eng übernehmen und nicht neu erfinden.  
 Die Grundform bleibt daher: `Gateway -> Agenten -> Workspaces -> Sessions -> Runs`.  
 Der Unterschied zu `openclaw` liegt nicht in einer völlig anderen Runtime, sondern darin, dass `ClawChestrate`-Agenten Projekte orchestrieren und Arbeit primär an externe Agenten delegieren.
+- In v1 ist `ClawChestrate` die eigene Orchestrierungsschicht und integriert `OpenClaw` als erstes konkretes Worker-System.
+- `ClawChestrate` und `OpenClaw` können dabei als getrennte Programme zusammenarbeiten.
+- Die Integration erfolgt in v1 über die vorhandenen OpenClaw-Gateway-, Session-, History-, Subscription- und Tool-Flächen.
 
 ## Bisher festgezurrt
 - `ClawChestrate` übernimmt die `openclaw`-Grundarchitektur mit Gateway, Sessions, Runs und Agent-Workspaces.
@@ -236,6 +239,13 @@ Große Kontexte, vollständige Ergebnisinhalte und Artefakte bleiben weiterhin a
 
 - Für `OpenClaw` als erstes externes Zielsystem benötigt `ClawChestrate` einen eigenen `OpenClawAdapter`.
 - Der Adapter ist die Übersetzungsschicht zwischen dem internen `ClawChestrate`-Modell und dem externen `OpenClaw`-Modell.
+- Für `ClawChestrate` als externes System ist in v1 nicht die volle interne OpenClaw-Quiescence-Logik direkt öffentlich verfügbar.
+- Stattdessen nutzt der `OpenClawAdapter` in v1 die bestmögliche öffentliche Außensicht auf OpenClaw, insbesondere:
+  - `agent.wait`
+  - `sessions.subscribe`
+  - `sessions.messages.subscribe`
+  - Session-History
+  - `subagents list`
 - Der Adapter ist verantwortlich für:
   - externe Projektagenten anlegen oder wiederfinden
   - `DelegationSessions` in diesen Agenten anlegen oder wiederfinden
@@ -266,6 +276,8 @@ Große Kontexte, vollständige Ergebnisinhalte und Artefakte bleiben weiterhin a
 
 
 - Diese Signale dienen in v1 primär als Zustands- und Wake-Signale für eine erneute Prüfung der betroffenen externen Session.
+- Subscriptions und andere Push-Signale sind in v1 damit bewusst Recheck-Signale, nicht der harte Beweis für finale Completion.
+- Sichtbare Session-Aktivität nach einem terminalen Run führt daher zu erneuter Prüfung, nicht automatisch zu Abschluss oder Ergebnisübernahme.
 - Ein einzelnes Push-Ereignis ist jedoch nicht selbst der Beweis für fachliche Delegations-Completion.
 
 - Für jede offene externe `DelegationSession` gilt:
@@ -327,6 +339,8 @@ Große Kontexte, vollständige Ergebnisinhalte und Artefakte bleiben weiterhin a
 - Ein terminaler Zustand beendet nur die technische Ausführung des konkreten externen Runs.
 - In OpenClaw kann die zugehörige Session danach weiterhin aktive Arbeit haben, insbesondere durch descendant subagent runs oder anschließende Wake-/Continuation-Runs.
 - Deshalb ist ein terminaler Run in v1 nur ein wichtiger Beobachtungspunkt, aber noch nicht automatisch der Rückgabepunkt an ClawChestrate.
+- Diese zusätzliche Komplexität entsteht in v1 vor allem durch den Subagent-Fall.
+- Für normale Fälle ohne Subagents wurde in OpenClaw kein allgemeiner automatischer Folge-Run-Mechanismus als Standardverhalten festgestellt.
 
 ### Verwertbares finales Session-Ergebnis
 - Erst wenn die externe Session final ruhig geworden ist, liest der Adapter das maßgebliche Ergebnis aus der zugehörigen Session-History.
@@ -755,5 +769,6 @@ Große Kontexte, vollständige Ergebnisinhalte und Artefakte bleiben weiterhin a
 
 ## Noch offen
 - Ob OpenClaw später eine kleine öffentliche Quiescence-Bridge erhalten soll, damit `ClawChestrate` externe Delegationssessions ohne heuristisches Settling-Fenster exakt abschließen kann
+- Wie lang das heuristische Settling-Fenster in v1 sein soll
 - Über welchen konkreten OpenClaw-Mechanismus der Projektkontext in v1 in den Lead-Run eingebracht wird, insbesondere die Abgrenzung zwischen `before_prompt_build`, `agent:bootstrap` und späterer Context-Engine-Integration
 - Wie stark ClawChestrate in v1 OpenClaws bestehende Retrieval- und Memory-Funktionen für Projekt-Memory aktiv nutzt, insbesondere `memory_search`, `memory_get` und ggf. Session-/Transcript-Retrieval
