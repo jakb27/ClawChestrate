@@ -262,7 +262,8 @@ Große Kontexte, vollständige Ergebnisinhalte und Artefakte bleiben weiterhin a
   - `sessions.subscribe`
   - `sessions.messages.subscribe`
   - Session-/Transcript-Updates über die vorhandenen Gateway-/History-Pfade
-  - subagent-bezogene Zustandsänderungen
+  - indirekt sichtbare Subagent-Aktivität, insbesondere über `subagents list`
+
 
 - Diese Signale dienen in v1 primär als Zustands- und Wake-Signale für eine erneute Prüfung der betroffenen externen Session.
 - Ein einzelnes Push-Ereignis ist jedoch nicht selbst der Beweis für fachliche Delegations-Completion.
@@ -284,7 +285,7 @@ Große Kontexte, vollständige Ergebnisinhalte und Artefakte bleiben weiterhin a
 
 ### Session-Ruhe statt bloßer Run-Terminalität
 - Für OpenClaw-basierte Delegationen erfolgt der Rückfluss an ClawChestrate erst dann, wenn die zugehörige externe `DelegationSession` nach OpenClaw-Semantik keine aktive Arbeit mehr hat.
-- Dazu gehören nicht nur direkte Runs dieser Session, sondern auch noch laufende oder noch nicht vollständig abgearbeitete descendant subagent runs.
+- Dazu gehören nicht nur direkte Runs dieser Session, sondern auch weiterhin aktive descendant subagent work, soweit sie über `subagents list` und die anschließende Re-Prüfung noch als offene Arbeit sichtbar ist.
 - Eine Delegation gilt daher in v1 erst dann als rückgabereif, wenn:
   - der aktuell relevante externe Run terminal ist
   - keine aktiven descendant subagent runs mehr sichtbar sind
