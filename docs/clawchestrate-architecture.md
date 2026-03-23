@@ -251,7 +251,7 @@ Große Kontexte, vollständige Ergebnisinhalte und Artefakte bleiben weiterhin a
   - `DelegationSessions` in diesen Agenten anlegen oder wiederfinden
   - konkrete externe `DelegationRuns` starten
   - aktive externe Runs und ihre zugehörigen externen Sessions beobachten
-  - Run-Terminalität und finale Session-Ruhe erkennen
+  - Run-Terminalität erkennen und finale Session-Ruhe in v1 über kombinierte Abschlussprüfung annähern
   - den inhaltlichen Output aus der zugehörigen externen Session lesen
   - Ergebnisse in das interne `ClawChestrate`-Format normalisieren
   - interne Completion-Signale für die Lead-Session auslösen
@@ -311,7 +311,7 @@ Große Kontexte, vollständige Ergebnisinhalte und Artefakte bleiben weiterhin a
   - neuer Assistant-Output
   - neuer Transcript-Eintrag
   - Statusänderung eines externen Runs
-  - Spawn- oder Endzustand eines descendant subagent runs
+  - indirekt sichtbare Änderungen von descendant subagent work, soweit sie sich in Session-Aktivität, Folge-Runs oder `subagents list` niederschlagen
 - Polling dient als Fallback und prüft offene externe `DelegationSessions` gezielt darauf, ob der relevante Run beendet ist, ob noch aktive Subagents sichtbar sind und ob die Session nach einem kurzen Settling-Fenster weiterhin ruhig bleibt.
 - Push und Polling dienen beide der Beobachtung offener externer Delegationen.
 - Sie bedeuten nicht automatisch, dass eine Delegation bereits rückgabereif ist.
