@@ -660,11 +660,30 @@ Große Kontexte, vollständige Ergebnisinhalte und Artefakte bleiben weiterhin a
   - `projects/<project-id>/memory/` als projektbezogenes Verlaufsmemory
 - Diese Projektschicht ergänzt OpenClaw, ersetzt es aber nicht.
 
+### Zugriff in der Grundphase
+
+- In der Grundphase von v1 ist `projects/<project-id>/summaries/current.md` die primäre Rehydrationsquelle für projektgebundene Lead-Runs.
+- `projects/<project-id>/memory/` existiert in dieser Phase bereits als projektspezifisches Verlaufsmemory, wird aber noch nicht als allgemeine semantische Retrieval-Quelle in jeden Lead-Run integriert.
+- Zusätzlicher Zugriff auf projektbezogenes Memory erfolgt in dieser Phase nicht über automatisch geskoptes `memory_search`, sondern über explizite Datei-Lesezugriffe des ClawChestrate-Agenten auf konkrete Dateien unter `projects/<project-id>/memory/`.
+- Das agentenweite OpenClaw-Memory bleibt davon unberührt:
+  - `memory_search` und `memory_get` bleiben in dieser Phase primär für das agentenweite Memory (`MEMORY.md`, `memory/*.md`) zuständig
+  - projektbezogenes Memory-Retrieval über `projects/<project-id>/memory/` ist noch kein Standardpfad
+
 ### Agentenweites vs. projektbezogenes Memory
 - Agentenweites, projektübergreifend wiederverwendbares Wissen gehört in die OpenClaw-Basisdateien des Agenten, insbesondere in `MEMORY.md`.
 - Laufende agentische Notizen und Tagesverlauf gehören in `memory/YYYY-MM-DD.md`.
 - Projektspezifischer Verlauf, projektspezifische Learnings und projektinterne Zwischenerkenntnisse gehören in `projects/<project-id>/memory/`.
 - Der aktuelle projektbezogene Arbeits- und Übergabezustand gehört in `projects/<project-id>/summaries/current.md`.
+
+### Spätere Ausbaustufe
+
+- Wenn die Grundstruktur stabil ist, kann OpenClaws bestehende Retrieval-Schicht zusätzlich auf projektbezogenes Memory erweitert werden.
+- Zielbild ist dann:
+  - `memory_search` kann zusätzlich projektgeskopte Inhalte aus `projects/<project-id>/memory/` durchsuchen
+  - `memory_get` kann Treffer aus diesem projektbezogenen Memory gezielt lesen
+- Diese Erweiterung soll nicht ungeskoptes projektübergreifendes Retrieval auf Agent-Ebene einführen.
+- Projektbezogenes Retrieval muss dabei an das aktuell gebundene Projekt des ClawChestrate-Agenten gekoppelt bleiben.
+- Bis diese Projekt-Skopierung sauber eingeführt ist, bleibt `summaries/current.md` die primäre Rehydrationsquelle und `projects/<project-id>/memory/` die gezielt per Datei-Zugriff nutzbare Tiefenquelle.
 
 ### Unterschied zwischen Projekt-Summary und Projekt-Memory
 - `projects/<project-id>/summaries/current.md` hält den aktuellen verdichteten Projektzustand.
