@@ -306,8 +306,11 @@ Große Kontexte, vollständige Ergebnisinhalte und Artefakte bleiben weiterhin a
 - Eine Delegation gilt daher in v1 erst dann als rückgabereif, wenn:
   - der aktuell relevante externe Run terminal ist
   - keine aktiven descendant subagent runs mehr sichtbar sind
-  - während eines kurzen Settling-Fensters keine neue Session-Aktivität und kein neuer Folge-Run auftritt
+  - während eines anfänglichen heuristischen Settling-Fensters von `2000 ms` keine neue Session-Aktivität und kein neuer Folge-Run auftritt
   - die anschließende Re-Prüfung weiterhin keine aktive Arbeit mehr zeigt
+- Dieses Settling-Fenster ist in v1 bewusst Teil der Grundstruktur und dient als heuristische Absicherung gegen Race-Zustände zwischen terminalem Run, endender Subagent-Arbeit und möglichem Folge-Run derselben externen Session.
+- Eine spätere präzisere Quiescence-Bridge kann dieses heuristische Fenster ersetzen oder deutlich reduzieren.
+
 
 ### Bedeutung von Push, Polling und Updates
 - Push-Signale zeigen an, dass es neue Information über eine offene externe Delegation gibt.
@@ -317,7 +320,7 @@ Große Kontexte, vollständige Ergebnisinhalte und Artefakte bleiben weiterhin a
   - neuer Transcript-Eintrag
   - Statusänderung eines externen Runs
   - indirekt sichtbare Änderungen von descendant subagent work, soweit sie sich in Session-Aktivität, Folge-Runs oder `subagents list` niederschlagen
-- Polling dient als Fallback und prüft offene externe `DelegationSessions` gezielt darauf, ob der relevante Run beendet ist, ob noch aktive Subagents sichtbar sind und ob die Session nach einem kurzen Settling-Fenster weiterhin ruhig bleibt.
+- Polling dient als Fallback und prüft offene externe `DelegationSessions` gezielt darauf, ob der relevante Run beendet ist, ob noch aktive Subagents sichtbar sind und ob die Session nach dem anfänglichen heuristischen Settling-Fenster von `2000 ms` weiterhin ruhig bleibt.
 - Push und Polling dienen beide der Beobachtung offener externer Delegationen.
 - Sie bedeuten nicht automatisch, dass eine Delegation bereits rückgabereif ist.
 
@@ -786,8 +789,10 @@ Große Kontexte, vollständige Ergebnisinhalte und Artefakte bleiben weiterhin a
 - Stattdessen verwendet `ClawChestrate` für OpenClaw-Delegationen in v1 eine kombinierte Abschlussprüfung:
   - der aktuell relevante externe Run ist terminal
   - `subagents list` für die externe Session zeigt keine aktiven Subagents mehr
-  - während eines kurzen Settling-Fensters tritt keine neue Session-Aktivität und kein neuer Folge-Run auf
+  - während eines anfänglichen heuristischen Settling-Fensters von `2000 ms` tritt keine neue Session-Aktivität und kein neuer Folge-Run auf
   - die anschließende Re-Prüfung bestätigt weiterhin keine aktive Arbeit
+- Dieses anfängliche Settling-Fenster ist in v1 bewusst Teil der Grundstruktur und noch keine harte OpenClaw-Quiescence-Aussage.
+- Es soll später durch eine präzisere Bridge ersetzt oder enger an die tatsächliche Session-Ruhe angebunden werden können.
 - Erst nach dieser Abschlussprüfung liest der `OpenClawAdapter` den relevanten finalen Output gezielt aus der zugehörigen externen Session, insbesondere über Session-History- und Transcript-Flächen.
 - Push ist damit das bevorzugte Signal für Veränderung und erneute Prüfung.
 - Polling bleibt das Sicherheitsnetz, wenn Signale ausbleiben oder erneut bestätigt werden müssen.
@@ -801,6 +806,16 @@ Große Kontexte, vollständige Ergebnisinhalte und Artefakte bleiben weiterhin a
 
 ## Noch offen
 - Ob OpenClaw später eine kleine öffentliche Quiescence-Bridge erhalten soll, damit `ClawChestrate` externe Delegationssessions ohne heuristisches Settling-Fenster exakt abschließen kann
-- Wie lang das heuristische Settling-Fenster in v1 sein soll
+- Ob das anfängliche heuristische Settling-Fenster von `2000 ms` nach ersten Erfahrungen angepasst werden soll
 - Ob `before_prompt_build` in einer späteren Ausbaustufe zusätzlich zum über `agent:bootstrap` eingebrachten Projektdatei-Kernkontext für einen kleinen dynamischen Lead-Run-Zusatzkontext genutzt werden soll, oder ob dies erst mit einer stärkeren Context-Engine-Integration eingeführt wird
 - Ob und wann ClawChestrate nach der Grundphase projektgeskoptes Retrieval für `projects/<project-id>/memory/` über OpenClaws bestehende Memory-Funktionen (`memory_search`, `memory_get`) einführt
+
+
+## Vor Implementierung noch festzuziehen
+
+- Die konkrete Gateway-/API-Form der `projects.*`-Methoden, insbesondere Request-/Response-Felder, Fehlerfälle und veränderbare Felder von `projects.update`
+- Der konkrete Mechanismus des internen Completion-Signals, über den eine final ruhige externe `DelegationSession` einen normalen Folge-Run der zuständigen Lead-Session auslöst
+- Die feste Zustandsmaschine der zentralen Verwaltungsobjekte, insbesondere für `Project Registry`, `ExternalProjectAgent`, `DelegationSession` und `DelegationRun`
+- Die konkreten Fortschreibungszeitpunkte für `summaries/current.md`, projektbezogenes `memory/` und gegebenenfalls `DELEGATION.md`
+- Die operative Initialisierungsregel von `projects.create_from_session`, insbesondere wie die erste Befüllung von `PROJECT.md`, `DELEGATION.md` und `summaries/current.md` konkret erzeugt wird und wie mit noch knappen Startfassungen umgegangen wird
+- Die klare Abgrenzung der internen v1-Run-/Flow-Typen in ClawChestrate, insbesondere Projektstart-Run, normaler projektgebundener Lead-Run und completion-getriggerter Folge-Run
