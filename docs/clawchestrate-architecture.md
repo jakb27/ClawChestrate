@@ -594,14 +594,25 @@ Große Kontexte, vollständige Ergebnisinhalte und Artefakte bleiben weiterhin a
 - Projektdateien und Projektzustände sind nicht automatisch vollständig Teil jedes Lead-Runs.
 - Für projektgebundene Sessions muss der Projektkontext vor jedem relevanten Run gezielt in den Run-Kontext assembliert werden.
 
-- In v1 erfolgt dieser Projektkontext-Aufbau möglichst eng an bestehenden OpenClaw-Kontext- und Promptaufbau-Mechanismen.
+- In v1 erfolgt dieser Projektkontext-Aufbau primär über den OpenClaw-nahen Bootstrap-Mechanismus `agent:bootstrap`.
+- Für projektgebundene Lead-Runs werden darüber die festen Projektdateien als Kernkontext in den Run eingebracht.
 - Dabei wird kein eigener generischer Run-Typ-Mechanismus für ClawChestrate eingeführt.
 
-- Der projektgebundene Run-Kontext wird in v1 aus folgenden Quellen zusammengesetzt:
+- Der Gesamtprojektzustand stützt sich in v1 auf mehrere Quellen:
   - Session-Metadaten
   - Project Registry
   - Project Workspace
   - Delegation Registry
+- Direkt in den Lead-Run eingebracht wird der feste Projektdatei-Kernkontext in v1 jedoch primär aus dem Project Workspace über `agent:bootstrap`.
+- `Session-Metadaten`, `Project Registry` und `Delegation Registry` bleiben in v1 primär System- und Verwaltungszustand.
+- Was daraus fachlich für die agentische Projektarbeit relevant ist, wird nicht roh in den Run-Kontext übernommen, sondern in Workspace-Dokumente verdichtet, insbesondere in `summaries/current.md`.
+
+
+- Der normale agentische Basiskontext des Systems bleibt dabei erhalten und wird nicht ersetzt.
+- `agent:bootstrap` ergänzt diesen Basiskontext in v1 für projektgebundene Lead-Runs um die projektspezifischen Kern-Dateien.
+- `before_prompt_build` ist in v1 nicht der Primärmechanismus für diesen Projektdatei-Kontext.
+- Eine spätere stärkere Nutzung von `before_prompt_build` für zusätzlichen dynamischen Run-Kontext bleibt offen.
+- Eine spätere Context-Engine-Integration bleibt ebenfalls offen.
 
 ### Kernkontext projektgebundener Lead-Runs
 - Für normale projektgebundene Lead-Runs gehören in v1 grundsätzlich zum Kernkontext:
@@ -619,12 +630,9 @@ Große Kontexte, vollständige Ergebnisinhalte und Artefakte bleiben weiterhin a
 
 ### Selektiver Zusatzkontext
 - Nicht der gesamte Projektkontext wird pauschal vollständig geladen.
-- Selektiv ergänzt werden nur bei Bedarf:
-  - projektbezogenes `memory/`
-  - relevante `artifacts/`
-  - kompakte operative Zustände aus Project Registry und Delegation Registry
-
-- Registry-Zustände werden dabei nicht als Rohdump übernommen, sondern in kompakter operativer Form.
+- Über den festen Projektdatei-Kernkontext hinaus werden zusätzliche Kontextelemente in v1 nicht standardmäßig in jeden Lead-Run eingebracht.
+- Projektbezogenes `memory/`, `artifacts/` sowie zusätzliche Zustände aus Project Registry und Delegation Registry bleiben in v1 zunächst zurückhaltend und werden nicht roh als Standardkontext in jeden Lead-Run geladen.
+- Fachlich relevante Inhalte aus diesen Quellen sollen stattdessen primär in Workspace-Dokumente verdichtet werden, insbesondere in `summaries/current.md`.
 - Ziel ist ein assembliertes, run-spezifisches Projektbild statt eines ungefilterten Dateidumps.
 
 ### Architektur-Richtung
