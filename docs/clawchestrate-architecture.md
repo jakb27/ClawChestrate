@@ -146,6 +146,9 @@ Der Unterschied zu `openclaw` liegt nicht in einer völlig anderen Runtime, sond
 - Stattdessen wird das Ergebnis zunächst persistent an der zugehörigen Delegation gespeichert.
 - Nach finalem Abschluss einer externen Delegationssession erzeugt das System ein internes Completion-Signal für die Lead-Session des Projekts.
 - Dieses Completion-Signal triggert keinen Sondermodus, sondern weckt die Lead-Session für einen normalen Folge-Run.
+- In v1 ist dieses Completion-Signal ein interner technischer Wake- bzw. Queue-Eintrag für die zuständige `Lead-Session`.
+- Das Completion-Signal wird nicht als synthetische Chat-Nachricht in die sichtbare Session-History der Lead-Session geschrieben.
+- Der dadurch ausgelöste Folge-Run bleibt ein normaler projektgebundener Lead-Run und kein eigener Spezial-Run-Typ nur für Completion.
 - Ein einzelner terminaler externer Run ist dafür in v1 nicht automatisch ausreichend.
 - Für OpenClaw-basierte Delegationen wird die Rückgabe an ClawChestrate erst dann ausgelöst, wenn die zugehörige externe Session nach OpenClaw-Semantik keine aktive Arbeit mehr hat.
 - Erst im danach ausgelösten Folge-Run übernimmt die Lead-Session das Ergebnis kontrolliert:
@@ -371,6 +374,9 @@ Große Kontexte, vollständige Ergebnisinhalte und Artefakte bleiben weiterhin a
   3. wird die Delegation Registry aktualisiert
   4. wird ein internes Completion-Signal für die zugehörige Lead-Session ausgelöst
 - Dieses interne Completion-Signal bedeutet nicht, dass der Fall bereits fachlich gelöst ist.
+- In v1 wird dieses interne Completion-Signal als technischer Wake- bzw. Queue-Eintrag für die zuständige `Lead-Session` behandelt.
+- Es ist nicht selbst Teil der sichtbaren Chat-History dieser Session.
+- Der danach ausgelöste Folge-Run liest den bereits persistierten und normalisierten Delegationszustand aus den internen Datenstrukturen, statt den Rohoutput als freie Chat-Nachricht injiziert zu bekommen.
 - Es bedeutet, dass die externe Delegationssession ihre Arbeit abgeschlossen hat und nun durch die Lead-Session behandelt werden muss.
 
 ### Reaktion der Lead-Session auf final abgeschlossene externe Delegationen
@@ -814,7 +820,7 @@ Große Kontexte, vollständige Ergebnisinhalte und Artefakte bleiben weiterhin a
 ## Vor Implementierung noch festzuziehen
 
 - Die konkrete Gateway-/API-Form der `projects.*`-Methoden, insbesondere Request-/Response-Felder, Fehlerfälle und veränderbare Felder von `projects.update`
-- Der konkrete Mechanismus des internen Completion-Signals, über den eine final ruhige externe `DelegationSession` einen normalen Folge-Run der zuständigen Lead-Session auslöst
+- Die konkrete technische Ausgestaltung der internen Queue-/Wake-Verarbeitung für Completion-getriggerte Folge-Runs
 - Die feste Zustandsmaschine der zentralen Verwaltungsobjekte, insbesondere für `Project Registry`, `ExternalProjectAgent`, `DelegationSession` und `DelegationRun`
 - Die konkreten Fortschreibungszeitpunkte für `summaries/current.md`, projektbezogenes `memory/` und gegebenenfalls `DELEGATION.md`
 - Die operative Initialisierungsregel von `projects.create_from_session`, insbesondere wie die erste Befüllung von `PROJECT.md`, `DELEGATION.md` und `summaries/current.md` konkret erzeugt wird und wie mit noch knappen Startfassungen umgegangen wird
