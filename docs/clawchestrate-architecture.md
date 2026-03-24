@@ -797,5 +797,5 @@ Große Kontexte, vollständige Ergebnisinhalte und Artefakte bleiben weiterhin a
 ## Noch offen
 - Ob OpenClaw später eine kleine öffentliche Quiescence-Bridge erhalten soll, damit `ClawChestrate` externe Delegationssessions ohne heuristisches Settling-Fenster exakt abschließen kann
 - Wie lang das heuristische Settling-Fenster in v1 sein soll
-- Über welchen konkreten OpenClaw-Mechanismus der Projektkontext in v1 in den Lead-Run eingebracht wird, insbesondere die Abgrenzung zwischen `before_prompt_build`, `agent:bootstrap` und späterer Context-Engine-Integration
+- Ob `before_prompt_build` in einer späteren Ausbaustufe zusätzlich zum über `agent:bootstrap` eingebrachten Projektdatei-Kernkontext für einen kleinen dynamischen Lead-Run-Zusatzkontext genutzt werden soll, oder ob dies erst mit einer stärkeren Context-Engine-Integration eingeführt wird
 - Wie stark ClawChestrate in v1 OpenClaws bestehende Retrieval- und Memory-Funktionen für Projekt-Memory aktiv nutzt, insbesondere `memory_search`, `memory_get` und ggf. Session-/Transcript-Retrieval
