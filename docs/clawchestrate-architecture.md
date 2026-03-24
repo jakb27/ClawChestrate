@@ -110,12 +110,17 @@ Der Unterschied zu `openclaw` liegt nicht in einer völlig anderen Runtime, sond
   - welche konkrete Aufgabe zu welcher `DelegationSession` gehört
   - welche `DelegationRuns` in diesen Sessions existieren
   - über welche externe Session der inhaltliche Output gelesen werden kann
-  - über welchen externen Run Lifecycle, Terminalität und Completion verfolgt werden
-- Der aktive Projektkontext einer Lead-Session wird bei projektgebundenen Runs aus vier Quellen zusammengesetzt:
+  - über welchen externen Run Lifecycle und Terminalität verfolgt werden
+  - über welche externe Session die fachliche Completion und Ergebnisrückführung entschieden werden
+
+- Der Gesamtprojektzustand einer Lead-Session stützt sich in v1 auf mehrere Quellen:
   - Session-Metadaten
   - Project Registry
   - Project Workspace
   - Delegation Registry
+- Direkt in den Lead-Run eingebracht wird der feste Projektdatei-Kernkontext in v1 jedoch primär aus dem Project Workspace.
+- `Session-Metadaten`, `Project Registry` und `Delegation Registry` bleiben dabei primär System- und Verwaltungszustand.
+- Was daraus fachlich für die agentische Projektarbeit relevant ist, wird nicht roh in den Run-Kontext übernommen, sondern in Workspace-Dokumente verdichtet, insbesondere in `summaries/current.md`.
 - Die `Delegation Registry` ist projektgebundener Verwaltungszustand und speichert die Zuordnung zwischen Projekt, externem Agenten, `DelegationSession`, `DelegationRun`, delegierter Aufgabe und Ergebnisrückführung.
 - Externe Agentenläufe liefern in v1 ein strukturiertes Rückgabeformat.
 - Minimales Rückgabeformat in v1:
@@ -798,4 +803,4 @@ Große Kontexte, vollständige Ergebnisinhalte und Artefakte bleiben weiterhin a
 - Ob OpenClaw später eine kleine öffentliche Quiescence-Bridge erhalten soll, damit `ClawChestrate` externe Delegationssessions ohne heuristisches Settling-Fenster exakt abschließen kann
 - Wie lang das heuristische Settling-Fenster in v1 sein soll
 - Ob `before_prompt_build` in einer späteren Ausbaustufe zusätzlich zum über `agent:bootstrap` eingebrachten Projektdatei-Kernkontext für einen kleinen dynamischen Lead-Run-Zusatzkontext genutzt werden soll, oder ob dies erst mit einer stärkeren Context-Engine-Integration eingeführt wird
-- Wie stark ClawChestrate in v1 OpenClaws bestehende Retrieval- und Memory-Funktionen für Projekt-Memory aktiv nutzt, insbesondere `memory_search`, `memory_get` und ggf. Session-/Transcript-Retrieval
+- Ob und wann ClawChestrate nach der Grundphase projektgeskoptes Retrieval für `projects/<project-id>/memory/` über OpenClaws bestehende Memory-Funktionen (`memory_search`, `memory_get`) einführt
